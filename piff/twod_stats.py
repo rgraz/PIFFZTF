@@ -21,6 +21,7 @@ from __future__ import print_function
 import numpy as np
 import warnings
 import galsim
+from scipy.stats import binned_statistic_2d
 
 from .stats import Stats
 
@@ -58,7 +59,125 @@ class TwoDHistStats(Stats):
 
         self.file_name = file_name
         self.skip = False
+    
 
+    def compute_shapes(self, psfs,starss, logger= None):
+        u = []
+        v = []
+        T = []
+        g1 = []
+        g2 = []
+        T_model = []
+        mean_T = []
+        median_T = []
+        g1_model = []
+        g2_model = []
+        dT = []
+        dg1 = []
+        dg2 = []
+        for (psf,stars) in zip(psfs,starss):
+            p, st, sm = self.measureShapes(psf, stars, logger=logger)
+            flag_truth = st[:,6]
+            flag_model = sm[:,6]
+            mask = (flag_truth==0) & (flag_model==0)
+            u.append(p[mask,0])
+            v.append(p[mask,1])
+            T.append(st[mask, 3])
+            mean_T.append(st[mask, 3]*0 + np.mean(st[mask, 3]))
+            median_T.append(st[mask, 3]*0 + np.median(st[mask, 3]))
+
+            g1.append(st[mask, 4])
+            g2.append(st[mask, 5])
+            T_model.append(sm[mask, 3])
+            g1_model.append(sm[mask, 4])
+            g2_model.append(sm[mask, 5])
+            dT.append(st[mask, 3] - sm[mask, 3])
+            dg1.append(st[mask, 4] - sm[mask, 4])
+            dg2.append(st[mask, 5] - sm[mask, 5])
+
+        self.u = np.hstack(u)
+        self.v = np.hstack(v)
+        self.T = np.hstack(T)
+        self.g1 = np.hstack(g1)
+        self.g2 = np.hstack(g2)
+        self.mean_T = np.hstack(mean_T)
+        self.median_T = np.hstack(median_T)
+        self.T_model = np.hstack(T_model)
+        self.g1_model = np.hstack(g1_model)
+        self.g2_model = np.hstack(g2_model)
+        self.dT = np.hstack(dT)
+        self.dToverT = self.dT/self.T
+        self.dg1 = np.hstack(dg1)
+        self.dg2 = np.hstack(dg2)
+        
+        
+
+        
+        
+    def compute_multiple_psf(self, psfs, starss, recompute=False, logger = None):
+        """
+        :param psfs:        A list of PSF Objects
+        :param stars:       A list of list of Star instances.
+        :param logger:      A logger object for logging debug info. [default: None]
+        """
+        logger = galsim.config.LoggerWrapper(logger)
+        self.twodhists = {}
+        refpsf = psfs[0]
+        if recompute:
+            self.compute_shapes(psfs,starss,logger)
+        u,v,T,g1,g2,T_model,g1_model,g2_model,dT,dg1,dg2 = self.u,self.v,self.T,self.g1,self.g2,self.T_model,self.g1_model,self.g2_model,self.dT,self.dg1,self.dg2
+
+        # compute the indices
+        logger.info("Computing TwoDHist indices")
+
+        # fudge the bins by multiplying 1.01 so that the max entries are in the bins
+        self.bins_u = np.linspace(np.min(u)*(1 - np.sign(np.min(u))*0.01), np.max(u) * (1 + np.sign(np.max(u))*0.01), num=self.number_bins_u + 1)
+        self.bins_v = np.linspace(np.min(v)*(1 - np.sign(np.min(v))*0.01), np.max(v) * (1 + np.sign(np.max(v))*0.01), num=self.number_bins_v + 1)
+
+
+        # digitize u and v. No such thing as entries below their min, so -1 to index
+        indx_u = np.digitize(u, self.bins_u) - 1
+        indx_v = np.digitize(v, self.bins_v) - 1
+
+        # get unique indices
+        unique_indx = np.vstack([tuple(row) for row in np.vstack((indx_u, indx_v)).T])
+
+        # compute the arrays
+        logger.info("Computing TwoDHist arrays")
+
+        # throw in coordinates for good measure
+        self.twodhists['u'] = self._array_to_2dhist(u, indx_u, indx_v, unique_indx)
+        self.twodhists['v'] = self._array_to_2dhist(v, indx_u, indx_v, unique_indx)
+        self.twodhists['dToverT'] = self._array_to_2dhist(self.dToverT, indx_u, indx_v, unique_indx)
+
+        # T
+        self.twodhists['T'] = self._array_to_2dhist(T, indx_u, indx_v, unique_indx)
+
+        # g1
+        self.twodhists['g1'] = self._array_to_2dhist(g1, indx_u, indx_v, unique_indx)
+
+        # g2
+        self.twodhists['g2'] = self._array_to_2dhist(g2, indx_u, indx_v, unique_indx)
+
+        # T_model
+        self.twodhists['T_model'] = self._array_to_2dhist(T, indx_u, indx_v, unique_indx)
+
+        # g1_model
+        self.twodhists['g1_model'] = self._array_to_2dhist(g1_model, indx_u, indx_v, unique_indx)
+
+        # g2_model
+        self.twodhists['g2_model'] = self._array_to_2dhist(g2_model, indx_u, indx_v, unique_indx)
+
+        # dT
+        self.twodhists['dT'] = self._array_to_2dhist(dT, indx_u, indx_v, unique_indx)
+
+        # dg1
+        self.twodhists['dg1'] = self._array_to_2dhist(dg1, indx_u, indx_v, unique_indx)
+
+        # dg2
+        self.twodhists['dg2'] = self._array_to_2dhist(dg2, indx_u, indx_v, unique_indx)
+
+        
     def compute(self, psf, stars, logger=None):
         """
         :param psf:         A PSF Object
@@ -99,8 +218,9 @@ class TwoDHistStats(Stats):
         logger.info("Computing TwoDHist indices")
 
         # fudge the bins by multiplying 1.01 so that the max entries are in the bins
-        self.bins_u = np.linspace(np.min(u), np.max(u) * 1.01, num=self.number_bins_u + 1)
-        self.bins_v = np.linspace(np.min(v), np.max(v) * 1.01, num=self.number_bins_v + 1)
+        self.bins_u = np.linspace(np.min(u)*(1 - np.sign(np.min(u))*0.01), np.max(u) * (1 + np.sign(np.max(u))*0.01), num=self.number_bins_u + 1)
+        self.bins_v = np.linspace(np.min(v)*(1 - np.sign(np.min(v))*0.01), np.max(v) * (1 + np.sign(np.max(v))*0.01), num=self.number_bins_v + 1)
+
 
         # digitize u and v. No such thing as entries below their min, so -1 to index
         indx_u = np.digitize(u, self.bins_u) - 1

@@ -300,10 +300,10 @@ class PSF(object):
 
         with fitsio.FITS(file_name,'r') as f:
             logger.debug('opened FITS file')
-            return cls._read(f, 'psf', logger)
+            return cls._read(f, 'psf', logger,file_name = file_name)
 
     @classmethod
-    def _read(cls, fits, extname, logger):
+    def _read(cls, fits, extname, logger, file_name):
         """This is the function that actually does the work for the read function.
         Composite PSF classes that need to iterate can call this multiple times as needed.
 
@@ -334,7 +334,21 @@ class PSF(object):
         # Read the stars, wcs, pointing values
         stars = Star.read(fits, extname + '_stars')
         logger.debug("stars = %s",stars)
-        wcs, pointing = cls.readWCS(fits, extname + '_wcs', logger=logger)
+        #wcs, pointing = cls.readWCS(fits, extname + '_wcs', logger=logger)
+        # NEW WAY FOR ZTF
+        from astropy.wcs import WCS
+        from astropy.io import fits as iofits
+        import galsim
+
+        img_file_name = '_'.join(file_name.split('_')[0:-1]) + '_sciimg.fits'
+        hdr = iofits.open(img_file_name)[0].header
+        wcs = WCS(hdr)
+        wcs = galsim.fitswcs.AstropyWCS(wcs=wcs)
+        
+        ra = galsim.Angle(hdr['RAD'],galsim.degrees)
+        dec = galsim.Angle(hdr['DECD'],galsim.degrees) #galsim.Angle.from_hms(hdr['DECD']) 
+        pointing = galsim.CelestialCoord(ra,dec)
+
         logger.debug("wcs = %s, pointing = %s",wcs,pointing)
 
         # Get any other kwargs we need for this PSF type
@@ -437,6 +451,8 @@ class PSF(object):
 
         wcs_str = [ base64.b64decode(s) for s in wcs_str ] # Convert back from b64 encoding
         # Convert back into wcs objects
+        from IPython import embed
+        embed()
         if sys.version_info > (3,0):
             try:
                 wcs_list = [ pickle.loads(s, encoding='bytes') for s in wcs_str ]

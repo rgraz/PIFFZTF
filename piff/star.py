@@ -496,6 +496,11 @@ class Star(object):
 
         image, weight = InputFiles.readImage(file_name, image_hdu, weight_hdu, badpix_hdu,
                                              noise=noise, logger=logger)
+        
+        ###ZTF ADD-ON !!!!!!
+
+
+        ### END
         if sky:
             image -= sky
 

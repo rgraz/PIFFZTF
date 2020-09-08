@@ -93,25 +93,39 @@ class StarStats(Stats):
         flux = star.fit.flux
         du, dv = star.fit.center
         params = np.array([flux, du, dv])
-
+        
+        # TRYING WIT?H IMINUIT
+        #from iminuit import Minuit
+        #def chi2(flux, du, dv):
+        #    return np.sum(self._fit_residual_minuit(flux,du,dv,star,psf))
+        
+        #m = Minuit(chi2, flux = flux, du = du, dv = dv, limit_du=(-2,2),limit_dv=(-2,2),limit_flux=(0,None))
+        #m.migrad()
         results = scipy.optimize.least_squares(
-            fun = self._fit_residual,
-            x0 = params,
-            args=(star, psf, logger,),
-            method='lm', ftol=1e-8, diff_step=1.e-4,
-            max_nfev=500)
-
-        # report results
+           fun = self._fit_residual,
+           x0 = params,
+           args=(star, psf, logger,),
+           method='lm', ftol=1e-8, diff_step=1.e-4,
+           max_nfev=500)
+        
+        #report results
         logger.debug('Adjusted Star Fit Results:')
         logger.debug(results)
 
-        # create new star with new fit
+        #create new star with new fit
         flux = results.x[0]
         du = results.x[1]
         dv = results.x[2]
-        center = (du, dv)
-        # also update the chisq, but keep the rest of the parameters from model fit
         chisq = results.cost*2  # Their cost is basically chisq / 2
+        
+        #flux = m.values['flux']
+        #du = m.values['du']
+        #dv = m.values['dv']
+        #chisq = m.fval
+
+        
+        center = (du, dv)
+        
         fit = StarFit(star.fit.params, params_var=star.fit.params_var,
                 flux=flux, center=center, chisq=chisq, dof=star.fit.dof,
                 A=star.fit.A, b=star.fit.b)
@@ -119,6 +133,20 @@ class StarStats(Stats):
 
         return star_fit
 
+    def _fit_residual_minuit(self, flux, du,dv, star, psf):
+        star.fit.flux = flux
+        star.fit.center = (du, dv)
+
+        # draw star
+        image_model = psf.drawStar(star).image
+
+        # get chi
+        image, weight, image_pos = star.data.getImage()
+        chi = (np.sqrt(weight.array) * (image_model.array - image.array)).flatten()
+
+        return chi
+
+    
     def _fit_residual(self, params, star, psf, logger=None):
         # modify star's fit values
         flux, du, dv = params

@@ -140,7 +140,7 @@ class PixelGrid(Model):
         # Calculate the second moment to initialize an initial Gaussian profile.
         # hsm returns: flux, x, y, sigma, g1, g2, flag
         sigma = star.hsm[3]
-
+        
         # Create an initial parameter array using a Gaussian profile.
         u = np.arange( -self._origin[0], self.size-self._origin[0]) * self.scale
         v = np.arange( -self._origin[1], self.size-self._origin[1]) * self.scale
