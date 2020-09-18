@@ -75,11 +75,13 @@ class TwoDHistStats(Stats):
         dT = []
         dg1 = []
         dg2 = []
+        flux = []
         for (psf,stars) in zip(psfs,starss):
             p, st, sm = self.measureShapes(psf, stars, logger=logger)
             flag_truth = st[:,6]
             flag_model = sm[:,6]
             mask = (flag_truth==0) & (flag_model==0)
+            flux.append(st[mask,0])
             u.append(p[mask,0])
             v.append(p[mask,1])
             T.append(st[mask, 3])
@@ -95,6 +97,7 @@ class TwoDHistStats(Stats):
             dg1.append(st[mask, 4] - sm[mask, 4])
             dg2.append(st[mask, 5] - sm[mask, 5])
 
+        self.flux = np.hstack(flux)
         self.u = np.hstack(u)
         self.v = np.hstack(v)
         self.T = np.hstack(T)

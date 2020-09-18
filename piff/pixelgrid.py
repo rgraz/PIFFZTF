@@ -346,6 +346,53 @@ class PixelGrid(Model):
         # Normally this is all that is required.
         star.fit.params /= np.sum(star.fit.params)*self.pixel_area
 
+
+    def reflux_minuit(self, star):
+        # Make sure input is properly normalized
+        self.normalize(star)
+        # Calculate the current centroid of the model at the location of this star.
+        # We'll shift the star's position to try to zero this out.
+        delta_u = np.arange(-self._origin[0], self.size-self._origin[0])
+        delta_v = np.arange(-self._origin[1], self.size-self._origin[1])
+        u, v = np.meshgrid(delta_u, delta_v)
+        temp = star.fit.params.reshape(self.size,self.size)
+        params_cenu = np.sum(u*temp)/np.sum(temp)
+        params_cenv = np.sum(v*temp)/np.sum(temp)
+        data, weight, u, v = star.data.getDataVector()
+        dof = np.count_nonzero(weight)
+        
+        def chi2(center_x,center_y, flux):
+            data, weight, u, v = star.data.getDataVector()
+            center = (center_x,center_y)
+            scaled_flux = flux * star.data.pixel_area
+            up = u-center[0]
+            vp = v-center[1]
+            coeffs, psfx, psfy, _,_ = self.interp_calculate(up/self.scale, vp/self.scale, True)
+            index1d = self._indexFromPsfxy(psfx, psfy)
+            nopsf = index1d < 0
+            alt_index1d = np.where(nopsf, 0, index1d)
+            coeffs = np.where(nopsf, 0., coeffs)
+            pvals = star.fit.params[alt_index1d]
+            mod = np.sum(coeffs*pvals, axis=1)
+            resid = data - mod*scaled_flux
+            chisq = np.sum(resid**2 * weight)
+            return chisq
+        
+        from iminuit import Minuit
+        m = Minuit(chi2,center_x = 0, center_y = 0, limit_center_x = (-3,3), limit_center_y = (-3,3), flux=1000,limit_flux = (1,None))
+        m.migrad()  # run optimiser
+        print(m.values)
+        
+        return Star(star.data, StarFit(star.fit.params,
+                                       flux = m.values['flux'],
+                                       center = (m.values['center_x'],m.values['center_y']),
+                                       params_var = star.fit.params_var,
+                                       chisq = 0,
+                                       dof = dof,
+                                       A = star.fit.A,
+                                       b = star.fit.b))
+
+    
     def reflux(self, star, fit_center=True, logger=None):
         """Fit the Model to the star's data, varying only the flux (and
         center, if it is free).  Flux and center are updated in the Star's
