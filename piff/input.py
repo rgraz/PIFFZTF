@@ -733,6 +733,23 @@ class InputFiles(Input):
 
         return stars
 
+    
+    def new_setWCS(self, wcs, logger):
+        import numpy as np
+        wcs_in = np.atleast_1d(wcs)
+        self.wcs_list = []
+        self.center_list = []
+        for image_num, kwargs in enumerate(self.image_kwargs):
+            image_file_name = kwargs['image_file_name']
+            image_hdu = kwargs['image_hdu']
+            image = galsim.fits.read(image_file_name, hdu=image_hdu)
+            config = {'wcs':wcs_in[image_num]}
+            logger.warning("Using custom wcs from config for %s",image_file_name)
+            base = { 'input' : config, 'index_key' : 'image_num', 'image_num' : image_num }
+            wcs = galsim.config.BuildWCS(config, 'wcs', base, logger)
+            self.wcs_list.append(wcs)
+            self.center_list.append(image.true_center)
+
     def setWCS(self, config, logger):
         self.wcs_list = []
         self.center_list = []

@@ -82,7 +82,7 @@ from .gsobject_model import GSObjectModel, Gaussian, Kolmogorov, Moffat
 from .interp import Interp
 from .mean_interp import Mean
 from .polynomial_interp import Polynomial, polynomial_types
-from .basis_interp import BasisInterp, BasisPolynomial
+from .basis_interp import BasisInterp, BasisPolynomial, BasisPolynomialPlusMap
 from .knn_interp import kNNInterp
 from .gp_interp import GPInterp
 

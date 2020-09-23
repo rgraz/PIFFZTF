@@ -347,7 +347,7 @@ class PixelGrid(Model):
         star.fit.params /= np.sum(star.fit.params)*self.pixel_area
 
 
-    def reflux_minuit(self, star):
+    def reflux_minuit(self, star, fit_center=True):
         # Make sure input is properly normalized
         self.normalize(star)
         # Calculate the current centroid of the model at the location of this star.
@@ -379,9 +379,9 @@ class PixelGrid(Model):
             return chisq
         
         from iminuit import Minuit
-        m = Minuit(chi2,center_x = 0, center_y = 0, limit_center_x = (-3,3), limit_center_y = (-3,3), flux=1000,limit_flux = (1,None))
-        m.migrad()  # run optimiser
-        print(m.values)
+        m = Minuit(chi2,center_x = 0, center_y = 0, limit_center_x = (-3,3), limit_center_y = (-3,3), flux=1000,limit_flux = (1,None), fix_center_x = not fit_center, fix_center_y = not fit_center, print_level = 0,error_flux = 1, error_center_x = 0.01, error_center_y = 0.01, errordef = 1)
+        _ = m.migrad()  # run optimiser
+        #print(m.values)
         
         return Star(star.data, StarFit(star.fit.params,
                                        flux = m.values['flux'],
