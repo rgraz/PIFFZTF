@@ -467,7 +467,7 @@ class BasisPolynomialPlusMap(BasisPolynomial):
     def load_map(self):
         import pickle
         from scipy.interpolate import LinearNDInterpolator
-        with open('interpolator.pkl', 'rb') as f:
+        with open(self.kwargs['map_path'], 'rb') as f:
             interp = pickle.load(f)
         self._map = interp
         
