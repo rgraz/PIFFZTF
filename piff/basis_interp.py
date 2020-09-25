@@ -459,7 +459,7 @@ class BasisPolynomialPlusMap(BasisPolynomial):
         self.kwargs = {
             'order' : order,
             'use_qr' : use_qr,
-            'map_path' : interpolation_map_file
+            'interpolation_map_file' : interpolation_map_file
         }
         self.load_map()
          
@@ -467,7 +467,7 @@ class BasisPolynomialPlusMap(BasisPolynomial):
     def load_map(self):
         import pickle
         from scipy.interpolate import LinearNDInterpolator
-        with open(self.kwargs['map_path'], 'rb') as f:
+        with open(self.kwargs['interpolation_map_file'], 'rb') as f:
             interp = pickle.load(f)
         self._map = interp
         
